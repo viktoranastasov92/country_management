@@ -1,0 +1,22 @@
+Country Manager - Documentation For Users
+
+This API provides the ability to manage country data which includes :
+	- creation of new countries
+	- editing existing countries
+	- searching for countries via given criterias
+	- deleting countries
+The country information is coming from data providers and every data provider is independent from the others
+	in terms of the country identifier in its system.
+When a new country is created, the data needed is the provider identifier and the country identifier in its
+	system and also the country name and abbreviation. Validations take place for the abbreviation that consists of 3 letters.
+When an existing country is updated it can be identified either with an identifier from the "Country manager"
+	system or with the identifier it has from a specific provider - along with the provider identifier itself.
+The same applies when we want to delete a country - with the above-mentioned two ways to identify a country
+	and to remove it from the system.
+Searching for existing countries can be done by several search options (which are all applied when searching) :
+	- list of identifiers from the "Country manager" system
+	- country name
+	- country abbreviation
+	- provider data - country identifier in the provider and the provider identifier itself
+	The search result consists of pages where we have the current page number, number of pages,
+		the size of a page and total number of countries that are found using the provided search filter.

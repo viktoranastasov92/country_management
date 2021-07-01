@@ -1,0 +1,189 @@
+Country Manager - Documentation for developers
+
+Technology stack :
+	- Java (Spring Boot)
+	- MongoDB
+
+API - supports CRUD operations - more details with example requests and responses - several sections below.
+
+Application setup :
+	The Spring Boot application is currently configured to run on "localhost" - port 8443 which is secured via https using a self-signed open ssl certificate.
+	More configuration details can be checked inside the "application.properties" file.
+	For test provider setup it is configured to initialize the application with three providers having these properties :
+		-1- id=1,name=FIRST_PROVIDER
+		-2- id=2,name=SECOND_PROVIDER
+		-3- id=3,name=THIRD_PROVIDER
+	
+	The mongo database can be started with a docker container like this :
+		docker run --network teams_default -p 27017:27017 --name mongo -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=testP@SS123 mongo
+		It is configured to run on "localhost", port=27017 with credentials :
+			- username=root
+			- password=testP@SS123
+			- database=countries_database
+			- authentication-database=admin
+	
+	An additional UI for browsing and managing the database can be started (again as a docker container) like this :
+		docker run --network teams_default -p 8081:8081 --name mongo-express -e ME_CONFIG_MONGODB_SERVER=mongo -e ME_CONFIG_MONGODB_PORT=27017 -e ME_CONFIG_MONGODB_ADMINUSERNAME=root -e ME_CONFIG_MONGODB_ADMINPASSWORD=testP@SS123 mongo-express
+
+There are two roles - "user" (username=simple_user, password=testp8324MN!!) and "admin" (username=user_admin1, password=nimda19!!zz@123)
+	and based on the role the specific CRUD operation is either allowed or forbidden.
+Roles permissions :
+	- create (POST requests) - only admin
+	- update (PUT requests) - only admin
+	- read (GET requests) - both user and admin roles
+	- delete (DELETE requests) - only admin
+
+Validations are added inside the implementation of the "CountryValidatorService" where invalid requests are handled.
+
+Database models :
+	- Country - has a list of CountryProviderRelations attached with @DBRef
+		- id - type string - primary key of the collection
+		- name - type string - cannot be null
+		- abbreviation - type string - cannot be null, index added for faster searching
+		- country_provider_data - list of CountryProviderRelations - objects that hold the provider id and the country id inside this provider
+		- createdAt - LocalDateTime - audit column for creation date of newly added objects - populated only once during new country insert
+		- updatedAt - LocalDateTime - audit column for last modified date of an object - populated on every country update
+		- version - long - audit column for the number of updates that took place for that object - incremented on every country update
+
+	- CountryProviderRelations
+		- id - type string - primary key of the collection
+		- countryId - type string - cannot be null
+		- id_provider - integer - cannot be null
+		- id_country_at_provider - integer - cannot be null
+	
+	- Provider
+		- id - type integer - primary key of the collection
+		- name - type string
+
+
+When a new country is created the unique identifier is generated like this : fz:country:{random}
+
+Auditing is enabled and it is handled implicitly by the mongo database for creation date and last modified date.
+
+The resource can be identified using any of the IDs - either via the unique identifier for the "Country" collection or via the provider id and the id of the country in that provider.
+
+Unit tests are added, but still not a 90+ or even 100% coverage reached - this is a TODO - see "Future improvements" section
+
+Example requests and responses for the CRUD operations :
+	- create :
+		- request - https://localhost:8443/countries :
+			{
+				"id_provider":3,
+				"id_country_at_provider":309,
+				"name": "russia",
+				"abbreviation": "rus"
+			}
+		- response :
+			{
+				"id": "fz:country:uGJfv",
+				"providers": [
+					{
+						"idProvider": 3,
+						"id_country_in_provider": 309
+					}
+				],
+				"name": "Russia",
+				"abbreviation": "RUS",
+				"createdAt": "2021-07-01T00:35:43.6791037",
+				"updatedAt": "2021-07-01T00:35:43.6791037"
+			}
+	
+	- read - https://localhost:8443/countries?ids=id1,fz:country:uGJfv&id_provider=3&name=rUS&abbreviation=ru&id_country_at_provider=309&page=0&size=2
+		- request : none
+		- response :
+			{
+				"countries": [
+					{
+						"id": "fz:country:uGJfv",
+						"providers": [
+							{
+								"idProvider": 3,
+								"id_country_in_provider": 309
+							}
+						],
+						"name": "Russia",
+						"abbreviation": "RUS",
+						"createdAt": "2021-07-01T00:35:43.679",
+						"updatedAt": "2021-07-01T00:35:43.679"
+					}
+				],
+				"currentPage": 0,
+				"totalCountries": 1,
+				"totalPages": 1
+			}
+	
+	- update - by country manager id - https://localhost:8443/countries?id=fz:country:WmZ0P :
+		- request :
+			{
+				"id_provider":1,
+				"id_country_at_provider":1232,
+				"name": "sweDEn",
+				"abbreviation": "sWe"
+			}
+
+		- response :
+			{
+				"id": "fz:country:WmZ0P",
+				"providers": [
+					{
+						"idProvider": 2,
+						"id_country_in_provider": 410
+					},
+					{
+						"idProvider": 1,
+						"id_country_in_provider": 1232
+					}
+				],
+				"name": "Sweden",
+				"abbreviation": "SWE",
+				"createdAt": "2021-07-01T00:40:09.337",
+				"updatedAt": "2021-07-01T00:40:40.3759216"
+			}
+	
+	- update - by id provider and id country at provider - https://localhost:8443/countries/provider_data?id_provider=2&id_country_at_provider=410
+		- request :
+			{
+				"id_provider":2,
+				"id_country_at_provider":410,
+				"name": "portugaL",
+				"abbreviation": "poR"
+			}
+
+		- response :
+			{
+				"id": "fz:country:WmZ0P",
+				"providers": [
+					{
+						"idProvider": 2,
+						"id_country_in_provider": 410
+					},
+					{
+						"idProvider": 1,
+						"id_country_in_provider": 1232
+					}
+				],
+				"name": "Portugal",
+				"abbreviation": "POR",
+				"createdAt": "2021-07-01T00:40:09.337",
+				"updatedAt": "2021-07-01T00:44:03.9448688"
+			}
+	
+	- delete - by country manager id - https://localhost:8443/countries?id=fz:country:WmZ0P :
+		- request : none
+		- response : none
+	
+	- delete - by id provider and id country at provider - https://localhost:8443/countries/provider_data?id_provider=3&id_country_at_provider=309 :
+		- request : none
+		- response : none
+
+
+- Future improvements
+	- investigate whether a NoSQL or an SQL database is best suitable for the case
+	- enhance unit tests (and maybe add integration tests as well) in order to achieve 90+ or 100% cove coverage
+	- POST - createCountry - to return "@ResponseStatus(HttpStatus.CREATED)" (201 OK) only when a brand new record is added to the  'country' collection and "200 OK" if an already existing one has been edited
+	- add PUT/PATCH - full/partial updates - currently only PUT (for partial updates) is supported
+	- see hibernate - OneToMany / ManyToOne - implicitly handling updates of joined tables instead of taking care of them explicitly
+	- GET request - search for "idProvider" AND/OR "idCountryInProvider"
+	- add search by start/end created date and start/end updated date
+	- enhance String validation to prevent injection attacks to the database (mongo-sanitizer, etc..)
+	- add constants for the database fields and for other places where such are suitable in the code
